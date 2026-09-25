@@ -1,0 +1,302 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f4f5f7;
+  color: #1f2430;
+}
+
+.app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.app-header h1 {
+  font-size: 22px;
+  margin: 0;
+}
+
+.status-pill {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.status-pill.ok {
+  background: #dcf5e3;
+  color: #1a7f37;
+}
+
+.status-pill.down {
+  background: #fde3e3;
+  color: #b3261e;
+}
+
+.building {
+  display: grid;
+  grid-template-columns: 70px repeat(3, 1fr);
+  background: #fff;
+  border: 1px solid #e2e4ea;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.hall-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.hall-row {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  border-top: 1px dashed #e9eaef;
+  gap: 6px;
+  padding: 0 8px;
+  justify-content: space-between;
+}
+
+.hall-row:first-child {
+  border-top: none;
+}
+
+.floor-label {
+  font-size: 13px;
+  color: #6b7280;
+  width: 18px;
+}
+
+.hall-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.hall-btn {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #d0d3db;
+  background: #fff;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hall-btn:hover {
+  background: #eef1ff;
+}
+
+/* A hall call button stays lit from the moment it's pressed until the
+   assigned elevator actually opens its door at that floor. */
+.hall-btn.pending {
+  background: #f59e0b;
+  border-color: #d97706;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+  animation: hall-pulse 1s ease-in-out infinite;
+}
+
+@keyframes hall-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25); }
+  50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.12); }
+}
+
+/* ---- Shaft: floor grid + the car that glides between floors --------- */
+
+.shaft-column {
+  position: relative;
+  border-left: 1px solid #eef0f4;
+}
+
+.shaft-row {
+  border-top: 1px dashed #e9eaef;
+}
+
+.shaft-row:first-child {
+  border-top: none;
+}
+
+.car {
+  position: absolute;
+  left: 5%;
+  width: 90%;
+  height: 34px;
+  margin-top: 4px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  transition-property: top;
+  transition-timing-function: linear;
+  /* transition-duration is set inline per elevator, matched to the
+     server's simulation tick length so the glide speed is accurate. */
+}
+
+.car-interior {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #fde68a;
+  color: #7c4a03;
+  font-weight: 700;
+  font-size: 13px;
+  z-index: 1;
+}
+
+.car-direction {
+  font-size: 11px;
+}
+
+/* Two steel-look panels that meet in the middle when closed, and slide
+   apart to the outer edges when the door opens - an actual sliding-door
+   effect instead of a plain colour swap. */
+.door-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  z-index: 2;
+  background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 50%, #cbd5e1 100%);
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.door-panel.left {
+  left: 0;
+  border-right: 1px solid rgba(0, 0, 0, 0.25);
+  transform: translateX(0);
+}
+
+.door-panel.right {
+  right: 0;
+  border-left: 1px solid rgba(0, 0, 0, 0.25);
+  transform: translateX(0);
+}
+
+.car.door-open .door-panel.left {
+  transform: translateX(-100%);
+}
+
+.car.door-open .door-panel.right {
+  transform: translateX(100%);
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.car-panel {
+  background: #fff;
+  border: 1px solid #e2e4ea;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.car-panel-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: #374151;
+}
+
+.car-status {
+  color: #6b7280;
+  font-size: 11px;
+}
+
+/* Depletes while the door is open; pressing "hold" resets it to full,
+   giving a visible confirmation the hold actually registered. */
+.door-progress-track {
+  height: 4px;
+  border-radius: 2px;
+  background: #eef0f4;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.door-progress-fill {
+  height: 100%;
+  background: #f59e0b;
+  transition-property: width;
+  transition-timing-function: linear;
+  /* transition-duration is set inline per elevator, matching the real
+     server tick length, so the drain rate always matches reality. */
+}
+
+.destination-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.dest-btn {
+  padding: 8px 0;
+  border: 1px solid #d0d3db;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.dest-btn.requested {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e3a8a;
+  font-weight: 600;
+}
+
+.dest-btn.current {
+  border-color: #16a34a;
+  color: #16a34a;
+}
+
+.door-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.door-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid #d0d3db;
+  border-radius: 6px;
+  background: #f9fafb;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.door-btn:hover:not(:disabled) {
+  background: #eef1ff;
+}
+
+.door-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Instant tactile feedback on click, independent of the server round trip. */
+.door-btn.pressed {
+  background: #dbeafe;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  transform: scale(0.96);
+}
