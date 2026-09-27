@@ -27,10 +27,39 @@ export function CarPanel({
   const floorList = Array.from({ length: floors }, (_, i) => floors - i);
   const doorOpen = elevator.doorStatus === 'OPEN';
 
-  // Brief visual "press" flash so a click registers instantly on screen,
-  // even before the server round-trip confirms the door timer reset.
   const [holdFlash, setHoldFlash] = useState(false);
   const [closeFlash, setCloseFlash] = useState(false);
+
+  // Smoothly track door progress
+  const [doorProgressPct, setDoorProgressPct] = useState(0);
+  const [transitionMs, setTransitionMs] = useState(0);
+
+  useEffect(() => {
+    if (elevator.doorStatus === 'OPEN') {
+      if (elevator.doorTicksRemaining === doorDwellTicks) {
+        // Door just opened or was held: snap to 100% instantly
+        setDoorProgressPct(100);
+        setTransitionMs(0);
+        
+        // Then start shrinking to the next tick's target
+        const timer = requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setDoorProgressPct(Math.max(0, ((doorDwellTicks - 1) / doorDwellTicks) * 100));
+            setTransitionMs(tickMs);
+          });
+        });
+        return () => cancelAnimationFrame(timer);
+      } else {
+        // Normal tick countdown: target the percentage for the END of this tick
+        setDoorProgressPct(Math.max(0, ((elevator.doorTicksRemaining - 1) / doorDwellTicks) * 100));
+        setTransitionMs(tickMs);
+      }
+    } else {
+      // Door closed
+      setDoorProgressPct(0);
+      setTransitionMs(0);
+    }
+  }, [elevator.doorStatus, elevator.doorTicksRemaining, doorDwellTicks, tickMs]);
 
   useEffect(() => {
     if (!holdFlash) return;
@@ -43,10 +72,6 @@ export function CarPanel({
     const t = setTimeout(() => setCloseFlash(false), 350);
     return () => clearTimeout(t);
   }, [closeFlash]);
-
-  const doorProgressPct = doorOpen
-    ? Math.max(0, Math.min(100, (elevator.doorTicksRemaining / doorDwellTicks) * 100))
-    : 0;
 
   const handleHold = () => {
     setHoldFlash(true);
@@ -70,7 +95,10 @@ export function CarPanel({
       <div className="door-progress-track" aria-hidden={!doorOpen}>
         <div
           className="door-progress-fill"
-          style={{ width: `${doorProgressPct}%`, transitionDuration: `${tickMs}ms` }}
+          style={{ 
+            width: `${doorProgressPct}%`, 
+            transitionDuration: `${transitionMs}ms` 
+          }}
         />
       </div>
 

@@ -1,86 +1,59 @@
-# Elevator Simulator (Node.js + TypeScript + React)
+# Elevator Simulator
 
-3 elevators, 10 floors, real-time hall/car calls over Socket.io, built with
-OOP design patterns (State, Strategy, Observer, Singleton).
+A real-time elevator simulator built with Node.js, TypeScript, and React. 
+It simulates 3 elevators across 10 floors, using Socket.io to sync the simulation state with the frontend in real time.
 
-## Structure
+## Tech Stack
 
-```
-server/   Node.js + TypeScript + Express + Socket.io backend
-client/   React + TypeScript (Vite) frontend
-```
+- **Backend:** Node.js, TypeScript, Express, Socket.io
+- **Frontend:** React, TypeScript, Vite
+- **Architecture:** OOP Design Patterns (State, Strategy, Observer, Singleton)
 
-## Running it
+## Getting Started
 
+You'll need two terminal sessions to run both the server and the client.
+
+### 1. Start the Server
 ```bash
-# terminal 1
 cd server
 npm install
-npm run dev        # http://localhost:4000
+npm run dev
+```
+The backend will start on `http://localhost:4000`.
 
-# terminal 2
+### 2. Start the Client
+```bash
 cd client
 npm install
-npm run dev         # http://localhost:5173
+npm run dev
 ```
+The frontend will start on `http://localhost:5173`.
 
-The client connects to `http://localhost:4000` by default. Override with a
-`.env` file in `client/` containing `VITE_SERVER_URL=http://your-host:4000`.
+> **Note:** The client defaults to `http://localhost:4000` for the WebSocket connection. If you need to change this, add a `.env` file in the `client/` directory with `VITE_SERVER_URL=http://your-host:4000`.
 
-## Design overview
+## System Design
 
-**State pattern** (`server/src/domain/states/`)
-`ElevatorState` (`IdleState` / `MovingUpState` / `MovingDownState`) governs
-both how a new request is filed and how a single simulation tick moves the
-car. This is what implements the spec's rule: *a car moving up only stops
-for UP calls in its path; a DOWN call placed above it is queued and served
-after the car reaches the top of its run and reverses* — the exact "floor 5"
-example in the brief.
+The core logic lives in the backend (`server/src/domain/`) and relies on standard OOP patterns to handle complex state transitions:
 
-**Strategy pattern** (`server/src/domain/strategies/`)
-`ElevatorSelectionStrategy` decides which car answers a hall call.
-`NearestElevatorStrategy` scores idle cars and cars already heading toward
-the call in the same direction by distance, and penalizes everything else.
-Swap in a different strategy without touching `ElevatorSystem` or the state
-machine.
+- **State Pattern:** Governs elevator movement (`IdleState`, `MovingUpState`, `MovingDownState`). This ensures elevators follow realistic rules (e.g., a car moving UP will only stop for UP calls on its way, queuing DOWN calls for the return trip).
+- **Strategy Pattern:** `NearestElevatorStrategy` is used to decide which car should respond to a hall call. It calculates a score based on distance and current direction.
+- **Observer Pattern:** Any change in an elevator's state triggers an event that `SocketBroadcaster` pushes to all connected web clients. No polling required.
+- **Singleton:** The `ElevatorSystem` manages the global simulation tick loop and the elevator fleet.
 
-**Observer pattern** (`server/src/domain/ElevatorObserver.ts`)
-Every state change (`Elevator.notifyObservers()`) is pushed to
-`SocketBroadcaster`, which emits `elevator:update` to every connected React
-client — no polling.
+## Socket Events
 
-**Singleton** (`server/src/domain/ElevatorSystem.ts`)
-`ElevatorSystem.getInstance()` owns the fleet and the simulation clock
-(`setInterval` ticking every `TICK_MS`), and is the single entry point the
-Socket.io gateway calls into.
-
-**Encapsulation**
-`Elevator` keeps `currentFloor`, `doorStatus`, and the up/down request sets
-private, exposing only the methods the state classes and system need
-(`getCurrentFloor`, `openDoorAt`, `getUpRequests`, ...).
-
-## Socket.io protocol
-
-| Event (client → server) | Payload | Meaning |
+### Client -> Server
+| Event | Payload | Description |
 |---|---|---|
-| `hall:call` | `{ floor, direction: 'UP' \| 'DOWN' }` | Hallway button press |
-| `car:call` | `{ elevatorId, floor }` | Destination button inside a car |
-| `door:hold` | `{ elevatorId }` | Hold-door button |
-| `door:close` | `{ elevatorId }` | Close-door-now button |
+| `hall:call` | `{ floor, direction: 'UP' \| 'DOWN' }` | User presses a call button in the hallway. |
+| `car:call` | `{ elevatorId, floor }` | User selects a destination floor inside the elevator. |
+| `door:hold` | `{ elevatorId }` | Keeps the door open longer. |
+| `door:close` | `{ elevatorId }` | Forces the door to close immediately. |
 
-| Event (server → client) | Payload |
-|---|---|
-| `elevator:init` | `{ floors, elevatorCount, elevators: ElevatorDTO[] }` (sent once on connect) |
-| `elevator:update` | `ElevatorDTO` (sent on every state change for one car) |
+### Server -> Client
+| Event | Payload | Description |
+|---|---|---|
+| `elevator:init` | `{ floors, elevatorCount, elevators }` | Syncs initial state when a client first connects. |
+| `elevator:update`| `ElevatorDTO` | Pushed on every state change (floor reached, doors opened, etc.). |
 
-## Notable trade-offs / what's simplified
 
-- The scheduling algorithm is a classic SCAN/LOOK, not a full cost-based
-  optimizer — good enough for 3 cars / 10 floors and easy to reason about
-  and test.
-- No persistence: state lives in memory in the singleton `ElevatorSystem`;
-  a server restart resets all cars to floor 1.
-- No automated test suite is included; the state/strategy classes are pure
-  and side-effect-free (aside from mutating the passed-in `Elevator`), so
-  they're straightforward to unit test with e.g. Jest — happy to add that
-  if useful.

@@ -85,12 +85,10 @@ export class Elevator {
 
   // ---- Public API used by ElevatorSystem ---------------------------------
   addRequest(floor: number, direction: Direction | null): void {
-    // Only short-circuit to an immediate door-open when the car is genuinely
-    // parked at this floor. If it's mid-transit (state !== IDLE), the exact
-    // floor can coincide with a call that must still respect direction -
-    // e.g. pressing DOWN at floor 5 while the car passes through 5 on its
-    // way up must NOT stop it there. Delegate to the state in that case.
-    if (this.state.getDirection() === Direction.IDLE && floor === this.currentFloor && !this.isDoorOpen()) {
+    const dir = this.state.getDirection();
+    const isMatchingDirection = dir === Direction.IDLE || dir === direction || direction === null;
+
+    if (floor === this.currentFloor && isMatchingDirection) {
       this.openDoorAt(floor);
     } else {
       this.state.addRequest(this, floor, direction);
